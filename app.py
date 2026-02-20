@@ -24,43 +24,105 @@ DATABASE_PATH = os.path.join(BASE_DIR, "waf.db")
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("APP_SECRET", "change-this-secret")
 
-ATTACK_PATTERNS = {
-    "SQLi": [
-        re.compile(r"\b(select|union|drop|insert|delete|update|where|or)\b", re.IGNORECASE),
-        re.compile(r"('|\"|\-\-|\#|;)\s*(or|and)\s*['\"]?\d+['\"]?\s*=\s*['\"]?\d+", re.IGNORECASE),
-        re.compile(r"\bunion\s+select\b", re.IGNORECASE),
-        re.compile(r"\bsleep\s*\(", re.IGNORECASE),
-    ],
-    "XSS": [
-        re.compile(r"<\s*script\b", re.IGNORECASE),
-        re.compile(r"javascript\s*:", re.IGNORECASE),
-        re.compile(r"\bon\w+\s*=", re.IGNORECASE),
-        re.compile(r"alert\s*\(", re.IGNORECASE),
-    ],
-    "PathTraversal": [
-        re.compile(r"\.\./|\.\.\\", re.IGNORECASE),
-        re.compile(r"%2e%2e%2f|%2e%2e%5c", re.IGNORECASE),
-    ],
-    "CommandInjection": [
-        re.compile(r"(\||;|&&)\s*(cat|ls|whoami|id|wget|curl|powershell|cmd)\b", re.IGNORECASE),
-    ],
-    "SSTI": [
-        re.compile(r"\{\{\s*7\s*\*\s*7\s*\}\}", re.IGNORECASE),
-        re.compile(r"\{\{.*(__class__|config|cycler|joiner|self)\b.*\}\}", re.IGNORECASE),
-        re.compile(r"\{%.*(import|include|extends).*\%}", re.IGNORECASE),
-    ],
-    "NoSQLi": [
-        re.compile(r"\$(ne|gt|gte|lt|lte|where|regex|or|and)\b", re.IGNORECASE),
-        re.compile(r"\{\s*\"?\$where\"?\s*:", re.IGNORECASE),
-    ],
-    "XXE": [
-        re.compile(r"<!DOCTYPE[^>]*\[[\s\S]*<!ENTITY", re.IGNORECASE),
-        re.compile(r"<!ENTITY\s+\w+\s+SYSTEM\s+[\"']", re.IGNORECASE),
-    ],
-    "FileInclusion": [
-        re.compile(r"(/etc/passwd|/proc/self/environ|boot\.ini|win\.ini)", re.IGNORECASE),
-        re.compile(r"(php://|file://|expect://|data://)", re.IGNORECASE),
-    ],
+RULE_PATTERNS = {
+    "SQLi": {
+        "low": [
+            re.compile(r"('|\"|\-\-|\#|;)\s*(or|and)\s*['\"]?\d+['\"]?\s*=\s*['\"]?\d+", re.IGNORECASE),
+            re.compile(r"\bunion\s+select\b", re.IGNORECASE),
+        ],
+        "medium": [
+            re.compile(r"\bsleep\s*\(", re.IGNORECASE),
+            re.compile(r"\binformation_schema\b", re.IGNORECASE),
+        ],
+        "high": [
+            re.compile(r"\b(select|union|drop|insert|delete|update|where|or)\b", re.IGNORECASE),
+            re.compile(r"(--|#|/\*|\*/|;)", re.IGNORECASE),
+        ],
+    },
+    "XSS": {
+        "low": [
+            re.compile(r"<\s*script\b", re.IGNORECASE),
+            re.compile(r"javascript\s*:", re.IGNORECASE),
+        ],
+        "medium": [
+            re.compile(r"\bon\w+\s*=", re.IGNORECASE),
+            re.compile(r"alert\s*\(", re.IGNORECASE),
+        ],
+        "high": [
+            re.compile(r"(<|%3c)\s*(img|svg|iframe|body)\b", re.IGNORECASE),
+        ],
+    },
+    "PathTraversal": {
+        "low": [
+            re.compile(r"\.\./|\.\.\\", re.IGNORECASE),
+            re.compile(r"%2e%2e%2f|%2e%2e%5c", re.IGNORECASE),
+        ],
+        "medium": [
+            re.compile(r"%252e%252e%252f|%252e%252e%255c", re.IGNORECASE),
+        ],
+        "high": [
+            re.compile(r"(\.\./){2,}|(\.\.\\){2,}", re.IGNORECASE),
+        ],
+    },
+    "CommandInjection": {
+        "low": [
+            re.compile(r"(\||;|&&)\s*(cat|ls|whoami|id|wget|curl|powershell|cmd)\b", re.IGNORECASE),
+        ],
+        "medium": [
+            re.compile(r"`[^`]+`|\$\([^)]+\)", re.IGNORECASE),
+        ],
+        "high": [
+            re.compile(r"(\||;|&&)\s*[a-z_]{2,}", re.IGNORECASE),
+        ],
+    },
+    "SSTI": {
+        "low": [
+            re.compile(r"\{\{\s*7\s*\*\s*7\s*\}\}", re.IGNORECASE),
+            re.compile(r"\{\{.*(__class__|config|cycler|joiner|self)\b.*\}\}", re.IGNORECASE),
+        ],
+        "medium": [
+            re.compile(r"\{%.*(import|include|extends).*\%}", re.IGNORECASE),
+        ],
+        "high": [
+            re.compile(r"\$\{[^}]+\}", re.IGNORECASE),
+        ],
+    },
+    "NoSQLi": {
+        "low": [
+            re.compile(r"\$(ne|gt|gte|lt|lte|where|regex|or|and)\b", re.IGNORECASE),
+            re.compile(r"\{\s*\"?\$where\"?\s*:", re.IGNORECASE),
+        ],
+        "medium": [
+            re.compile(r"\"?\$regex\"?\s*:\s*\"?\.?\*", re.IGNORECASE),
+        ],
+        "high": [
+            re.compile(r"\"?\$[a-z]+\"?\s*:", re.IGNORECASE),
+        ],
+    },
+    "XXE": {
+        "low": [
+            re.compile(r"<!DOCTYPE[^>]*\[[\s\S]*<!ENTITY", re.IGNORECASE),
+            re.compile(r"<!ENTITY\s+\w+\s+SYSTEM\s+[\"']", re.IGNORECASE),
+        ],
+        "medium": [
+            re.compile(r"SYSTEM\s+[\"']file://", re.IGNORECASE),
+        ],
+        "high": [
+            re.compile(r"<\?xml|xinclude|PUBLIC", re.IGNORECASE),
+        ],
+    },
+    "FileInclusion": {
+        "low": [
+            re.compile(r"(/etc/passwd|/proc/self/environ|boot\.ini|win\.ini)", re.IGNORECASE),
+            re.compile(r"(php://|file://|expect://|data://)", re.IGNORECASE),
+        ],
+        "medium": [
+            re.compile(r"(\.\./)+.*\.(php|asp|aspx|jsp|ini|conf)", re.IGNORECASE),
+        ],
+        "high": [
+            re.compile(r"(include|page|template)\s*=", re.IGNORECASE),
+        ],
+    },
 }
 
 RULE_METADATA = {
@@ -131,12 +193,14 @@ def init_db():
         """
         CREATE TABLE IF NOT EXISTS waf_rules (
             rule_name TEXT PRIMARY KEY,
-            is_enabled INTEGER NOT NULL DEFAULT 1
+            is_enabled INTEGER NOT NULL DEFAULT 1,
+            sensitivity TEXT NOT NULL DEFAULT 'medium'
         )
         """
     )
     db.commit()
     ensure_default_admin()
+    ensure_rules_schema()
     ensure_default_rules()
 
 
@@ -158,16 +222,35 @@ def ensure_default_admin():
 
 def ensure_default_rules():
     db = get_db()
-    for rule_name in ATTACK_PATTERNS:
+    for rule_name in RULE_PATTERNS:
         existing = db.execute(
             "SELECT rule_name FROM waf_rules WHERE rule_name = ?",
             (rule_name,),
         ).fetchone()
         if existing is None:
             db.execute(
-                "INSERT INTO waf_rules (rule_name, is_enabled) VALUES (?, 1)",
+                "INSERT INTO waf_rules (rule_name, is_enabled, sensitivity) VALUES (?, 1, 'medium')",
                 (rule_name,),
             )
+    db.commit()
+
+
+def ensure_rules_schema():
+    db = get_db()
+    columns = {
+        row["name"] for row in db.execute("PRAGMA table_info(waf_rules)").fetchall()
+    }
+    if "sensitivity" not in columns:
+        db.execute(
+            "ALTER TABLE waf_rules ADD COLUMN sensitivity TEXT NOT NULL DEFAULT 'medium'"
+        )
+    db.execute(
+        """
+        UPDATE waf_rules
+        SET sensitivity = 'medium'
+        WHERE sensitivity IS NULL OR LOWER(sensitivity) NOT IN ('low', 'medium', 'high')
+        """
+    )
     db.commit()
 
 
@@ -202,13 +285,33 @@ def collect_payload() -> str:
     return " | ".join(pieces).strip()
 
 
-def detect_attack(payload: str, enabled_rules: set):
+def patterns_for_sensitivity(rule_name: str, sensitivity: str):
+    levels = ["low", "medium", "high"]
+    if sensitivity == "low":
+        allowed_levels = {"low"}
+    elif sensitivity == "high":
+        allowed_levels = {"low", "medium", "high"}
+    else:
+        allowed_levels = {"low", "medium"}
+
+    patterns = []
+    for level in levels:
+        if level in allowed_levels:
+            patterns.extend(RULE_PATTERNS.get(rule_name, {}).get(level, []))
+    return patterns
+
+
+def detect_attack(payload: str, rule_settings: dict):
     if not payload:
         return None
     decoded_payload = unquote_plus(payload)
-    for attack_type, patterns in ATTACK_PATTERNS.items():
-        if attack_type not in enabled_rules:
+    for attack_type in RULE_PATTERNS:
+        settings = rule_settings.get(
+            attack_type, {"is_enabled": True, "sensitivity": "medium"}
+        )
+        if not settings["is_enabled"]:
             continue
+        patterns = patterns_for_sensitivity(attack_type, settings["sensitivity"])
         for pattern in patterns:
             if pattern.search(decoded_payload):
                 return attack_type
@@ -292,27 +395,40 @@ def build_security_stats(db: sqlite3.Connection) -> dict:
     return stats
 
 
-def get_enabled_rules(db: sqlite3.Connection) -> set:
+def get_rule_settings(db: sqlite3.Connection) -> dict:
     rows = db.execute(
-        "SELECT rule_name FROM waf_rules WHERE is_enabled = 1"
+        "SELECT rule_name, is_enabled, sensitivity FROM waf_rules"
     ).fetchall()
-    return {row["rule_name"] for row in rows}
+    settings = {}
+    for row in rows:
+        sensitivity = (row["sensitivity"] or "medium").lower()
+        if sensitivity not in {"low", "medium", "high"}:
+            sensitivity = "medium"
+        settings[row["rule_name"]] = {
+            "is_enabled": bool(row["is_enabled"]),
+            "sensitivity": sensitivity,
+        }
+    return settings
 
 
 def get_rule_rows(db: sqlite3.Connection) -> list:
     rows = db.execute(
-        "SELECT rule_name, is_enabled FROM waf_rules ORDER BY rule_name ASC"
+        "SELECT rule_name, is_enabled, sensitivity FROM waf_rules ORDER BY rule_name ASC"
     ).fetchall()
     result = []
     for row in rows:
         rule_name = row["rule_name"]
         meta = RULE_METADATA.get(rule_name, {"label": rule_name, "stats_key": ""})
+        sensitivity = (row["sensitivity"] or "medium").lower()
+        if sensitivity not in {"low", "medium", "high"}:
+            sensitivity = "medium"
         result.append(
             {
                 "rule_name": rule_name,
                 "label": meta["label"],
                 "stats_key": meta["stats_key"],
                 "is_enabled": bool(row["is_enabled"]),
+                "sensitivity": sensitivity,
             }
         )
     return result
@@ -336,8 +452,8 @@ def waf_layer():
 
     db = get_db()
     payload = collect_payload()
-    enabled_rules = get_enabled_rules(db)
-    attack_type = detect_attack(payload, enabled_rules)
+    rule_settings = get_rule_settings(db)
+    attack_type = detect_attack(payload, rule_settings)
 
     if attack_type:
         log_request(status="BLOCKED", payload=payload, attack_type=attack_type)
@@ -598,13 +714,16 @@ def admin_delete_user():
 def admin_update_rules():
     enabled_rules = set(request.form.getlist("enabled_rules"))
     db = get_db()
-    known_rules = set(ATTACK_PATTERNS.keys())
+    known_rules = set(RULE_PATTERNS.keys())
 
     for rule_name in known_rules:
         is_enabled = 1 if rule_name in enabled_rules else 0
+        sensitivity = request.form.get(f"sensitivity_{rule_name}", "medium").lower()
+        if sensitivity not in {"low", "medium", "high"}:
+            sensitivity = "medium"
         db.execute(
-            "UPDATE waf_rules SET is_enabled = ? WHERE rule_name = ?",
-            (is_enabled, rule_name),
+            "UPDATE waf_rules SET is_enabled = ?, sensitivity = ? WHERE rule_name = ?",
+            (is_enabled, sensitivity, rule_name),
         )
     db.commit()
     flash("Detection rule settings updated.")

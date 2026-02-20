@@ -71,9 +71,19 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
       {% for rule in rules %}
       <label class="flex items-center justify-between px-4 py-3 rounded-xl border border-slate-100 bg-slate-50">
-        <div>
+        <div class="pr-4">
           <div class="font-semibold text-slate-700">{{ rule["label"] }}</div>
           <div class="text-xs text-slate-400">Detected: {{ "{:,}".format(stats.get(rule["stats_key"], 0)) }}</div>
+          <div class="mt-2">
+            <select
+              name="sensitivity_{{ rule['rule_name'] }}"
+              class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 bg-white"
+            >
+              <option value="low" {% if rule["sensitivity"] == "low" %}selected{% endif %}>Low (relaxed)</option>
+              <option value="medium" {% if rule["sensitivity"] == "medium" %}selected{% endif %}>Medium</option>
+              <option value="high" {% if rule["sensitivity"] == "high" %}selected{% endif %}>High (strict)</option>
+            </select>
+          </div>
         </div>
         <input
           type="checkbox"
