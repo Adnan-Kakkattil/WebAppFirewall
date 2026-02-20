@@ -46,8 +46,11 @@ App runs on: `http://127.0.0.1:5000`
 
 ## Default Admin Login
 
-- Username: `admin`
-- Password: `admin123`
+First run now uses an admin setup page:
+
+- Open `http://127.0.0.1:5000/admin/setup`
+- Create your initial admin username and password
+- Then sign in at `http://127.0.0.1:5000/admin/login`
 
 You can override with environment variables:
 

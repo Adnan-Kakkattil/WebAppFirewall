@@ -104,8 +104,10 @@ def init_db():
 
 
 def ensure_default_admin():
-    username = os.getenv("ADMIN_USERNAME", "admin")
-    password = os.getenv("ADMIN_PASSWORD", "admin123")
+    username = os.getenv("ADMIN_USERNAME")
+    password = os.getenv("ADMIN_PASSWORD")
+    if not username or not password:
+        return
     password_hash = generate_password_hash(password)
     db = get_db()
     existing = db.execute("SELECT id FROM admins WHERE username = ?", (username,)).fetchone()
@@ -125,6 +127,11 @@ def admin_required(view):
         return view(*args, **kwargs)
 
     return wrapped_view
+
+
+def admin_count() -> int:
+    db = get_db()
+    return db.execute("SELECT COUNT(*) AS total FROM admins").fetchone()["total"]
 
 
 def collect_payload() -> str:
@@ -205,6 +212,16 @@ def waf_layer():
     if request.path.startswith("/static"):
         return None
 
+    # Avoid scanning admin credential submissions to reduce false positives.
+    if request.path in {
+        "/admin/login",
+        "/admin/setup",
+        "/admin/users/create",
+        "/admin/users/delete",
+        "/admin/users/reset-password",
+    }:
+        return None
+
     payload = collect_payload()
     attack_type = detect_attack(payload)
 
@@ -282,6 +299,9 @@ def simulate():
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
+    if admin_count() == 0:
+        return redirect(url_for("admin_setup"))
+
     if request.method == "POST":
         username = request.form.get("username", "")
         password = request.form.get("password", "")
@@ -292,10 +312,44 @@ def admin_login():
         ).fetchone()
         if admin and check_password_hash(admin["password_hash"], password):
             session["admin_logged_in"] = True
+            session["admin_id"] = admin["id"]
             session["admin_username"] = admin["username"]
             return redirect(url_for("admin_dashboard"))
         flash("Invalid username or password.")
     return render_template("admin_login.html", page_title="Admin Login")
+
+
+@app.route("/admin/setup", methods=["GET", "POST"])
+def admin_setup():
+    if admin_count() > 0:
+        return redirect(url_for("admin_login"))
+
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if len(username) < 3:
+            flash("Username must be at least 3 characters.")
+            return render_template("admin_setup.html", page_title="Admin Setup")
+        if len(password) < 8:
+            flash("Password must be at least 8 characters.")
+            return render_template("admin_setup.html", page_title="Admin Setup")
+        if password != confirm_password:
+            flash("Password confirmation does not match.")
+            return render_template("admin_setup.html", page_title="Admin Setup")
+
+        db = get_db()
+        password_hash = generate_password_hash(password)
+        db.execute(
+            "INSERT INTO admins (username, password_hash) VALUES (?, ?)",
+            (username, password_hash),
+        )
+        db.commit()
+        flash("Admin account created. Please sign in.")
+        return redirect(url_for("admin_login"))
+
+    return render_template("admin_setup.html", page_title="Admin Setup")
 
 
 @app.route("/admin/logout")
@@ -328,6 +382,13 @@ def admin_dashboard():
         LIMIT 100
         """
     ).fetchall()
+    admins = db.execute(
+        """
+        SELECT id, username
+        FROM admins
+        ORDER BY username ASC
+        """
+    ).fetchall()
     traffic_total = db.execute("SELECT COUNT(*) AS total FROM request_logs").fetchone()["total"]
     blocked_total = db.execute(
         "SELECT COUNT(*) AS total FROM request_logs WHERE status = 'BLOCKED'"
@@ -353,11 +414,106 @@ def admin_dashboard():
         "admin_dashboard.html",
         attacks=attacks,
         requests=requests,
+        admins=admins,
+        current_admin_id=session.get("admin_id"),
         summary=summary,
         stats=stats,
         page_title="Security Logs",
         active_nav="logs",
     )
+
+
+@app.route("/admin/users/create", methods=["POST"])
+@admin_required
+def admin_create_user():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "")
+    confirm_password = request.form.get("confirm_password", "")
+
+    if len(username) < 3:
+        flash("New admin username must be at least 3 characters.")
+        return redirect(url_for("admin_dashboard"))
+    if len(password) < 8:
+        flash("New admin password must be at least 8 characters.")
+        return redirect(url_for("admin_dashboard"))
+    if password != confirm_password:
+        flash("New admin password confirmation does not match.")
+        return redirect(url_for("admin_dashboard"))
+
+    db = get_db()
+    exists = db.execute("SELECT id FROM admins WHERE username = ?", (username,)).fetchone()
+    if exists:
+        flash("Admin username already exists.")
+        return redirect(url_for("admin_dashboard"))
+
+    db.execute(
+        "INSERT INTO admins (username, password_hash) VALUES (?, ?)",
+        (username, generate_password_hash(password)),
+    )
+    db.commit()
+    flash("New admin user created successfully.")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/users/reset-password", methods=["POST"])
+@admin_required
+def admin_reset_password():
+    admin_id = request.form.get("admin_id", "").strip()
+    password = request.form.get("password", "")
+    confirm_password = request.form.get("confirm_password", "")
+
+    if not admin_id.isdigit():
+        flash("Invalid admin selected for password reset.")
+        return redirect(url_for("admin_dashboard"))
+    if len(password) < 8:
+        flash("Reset password must be at least 8 characters.")
+        return redirect(url_for("admin_dashboard"))
+    if password != confirm_password:
+        flash("Reset password confirmation does not match.")
+        return redirect(url_for("admin_dashboard"))
+
+    db = get_db()
+    admin = db.execute("SELECT id FROM admins WHERE id = ?", (admin_id,)).fetchone()
+    if not admin:
+        flash("Admin user not found.")
+        return redirect(url_for("admin_dashboard"))
+
+    db.execute(
+        "UPDATE admins SET password_hash = ? WHERE id = ?",
+        (generate_password_hash(password), admin_id),
+    )
+    db.commit()
+    flash("Admin password reset successfully.")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/users/delete", methods=["POST"])
+@admin_required
+def admin_delete_user():
+    admin_id = request.form.get("admin_id", "").strip()
+    current_admin_id = session.get("admin_id")
+
+    if not admin_id.isdigit():
+        flash("Invalid admin selected for deletion.")
+        return redirect(url_for("admin_dashboard"))
+    if current_admin_id and str(current_admin_id) == admin_id:
+        flash("You cannot delete your own logged-in admin account.")
+        return redirect(url_for("admin_dashboard"))
+
+    if admin_count() <= 1:
+        flash("Cannot delete the last remaining admin account.")
+        return redirect(url_for("admin_dashboard"))
+
+    db = get_db()
+    admin = db.execute("SELECT id FROM admins WHERE id = ?", (admin_id,)).fetchone()
+    if not admin:
+        flash("Admin user not found.")
+        return redirect(url_for("admin_dashboard"))
+
+    db.execute("DELETE FROM admins WHERE id = ?", (admin_id,))
+    db.commit()
+    flash("Admin user deleted successfully.")
+    return redirect(url_for("admin_dashboard"))
 
 
 @app.errorhandler(403)
