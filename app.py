@@ -301,7 +301,7 @@ def patterns_for_sensitivity(rule_name: str, sensitivity: str):
     return patterns
 
 
-def detect_attack(payload: str, rule_settings: dict):
+def detect_attack_details(payload: str, rule_settings: dict) -> Optional[dict]:
     if not payload:
         return None
     decoded_payload = unquote_plus(payload)
@@ -311,11 +311,23 @@ def detect_attack(payload: str, rule_settings: dict):
         )
         if not settings["is_enabled"]:
             continue
-        patterns = patterns_for_sensitivity(attack_type, settings["sensitivity"])
+        sensitivity = settings["sensitivity"]
+        patterns = patterns_for_sensitivity(attack_type, sensitivity)
         for pattern in patterns:
             if pattern.search(decoded_payload):
-                return attack_type
+                return {
+                    "attack_type": attack_type,
+                    "sensitivity": sensitivity,
+                    "pattern": pattern.pattern,
+                }
     return None
+
+
+def detect_attack(payload: str, rule_settings: dict):
+    details = detect_attack_details(payload, rule_settings)
+    if not details:
+        return None
+    return details["attack_type"]
 
 
 def get_client_ip() -> str:
@@ -447,6 +459,7 @@ def waf_layer():
         "/admin/users/delete",
         "/admin/users/reset-password",
         "/admin/rules/update",
+        "/admin/rules/test",
     }:
         return None
 
@@ -602,12 +615,14 @@ def admin_dashboard():
     ).fetchall()
     rules = get_rule_rows(db)
     stats = build_security_stats(db)
+    rule_test_result = session.pop("rule_test_result", None)
     return render_template(
         "admin_dashboard.html",
         attacks=attacks,
         requests=requests,
         admins=admins,
         rules=rules,
+        rule_test_result=rule_test_result,
         current_admin_id=session.get("admin_id"),
         summary=summary,
         stats=stats,
@@ -727,6 +742,36 @@ def admin_update_rules():
         )
     db.commit()
     flash("Detection rule settings updated.")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/rules/test", methods=["POST"])
+@admin_required
+def admin_test_rules():
+    payload = request.form.get("test_payload", "")
+    if not payload.strip():
+        flash("Enter a payload to test rule matching.")
+        return redirect(url_for("admin_dashboard"))
+
+    db = get_db()
+    rule_settings = get_rule_settings(db)
+    result = detect_attack_details(payload, rule_settings)
+    if result:
+        session["rule_test_result"] = {
+            "status": "blocked",
+            "attack_type": result["attack_type"],
+            "sensitivity": result["sensitivity"],
+            "pattern": result["pattern"],
+            "payload": payload[:500],
+        }
+    else:
+        session["rule_test_result"] = {
+            "status": "allowed",
+            "attack_type": None,
+            "sensitivity": None,
+            "pattern": None,
+            "payload": payload[:500],
+        }
     return redirect(url_for("admin_dashboard"))
 
 

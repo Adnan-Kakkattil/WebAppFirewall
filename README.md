@@ -24,6 +24,7 @@ It runs as a middleware layer in Flask and blocks suspicious requests before the
 - Admin dashboard for attack summaries and recent logs
 - Detection rule controls (enable/disable modules from admin dashboard)
 - Per-rule sensitivity levels (`Low`, `Medium`, `High`) for relaxed/strict matching
+- Admin rule testing panel to verify which rule/pattern matches a payload
 - Simulation mode for college demo testing
 
 ## Tech Stack

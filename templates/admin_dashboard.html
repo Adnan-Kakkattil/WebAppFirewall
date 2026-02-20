@@ -101,6 +101,40 @@
   </form>
 </div>
 
+<div class="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+  <div class="flex items-center justify-between mb-5">
+    <h3 class="font-bold text-lg">Rule Testing Panel</h3>
+    <span class="text-xs text-slate-400">Test payload against current rule toggles and sensitivity</span>
+  </div>
+  <form method="post" action="{{ url_for('admin_test_rules') }}" class="space-y-4">
+    <textarea
+      name="test_payload"
+      rows="3"
+      class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 font-mono text-sm focus:border-red-400 outline-none"
+      placeholder="Paste payload here and run test"
+      required
+    ></textarea>
+    <button type="submit" class="px-5 py-3 bg-slate-800 text-white rounded-xl text-sm font-bold hover:bg-slate-900">
+      Run Rule Test
+    </button>
+  </form>
+
+  {% if rule_test_result %}
+  <div class="mt-5 rounded-2xl border {% if rule_test_result['status'] == 'blocked' %}border-red-100 bg-red-50{% else %}border-green-100 bg-green-50{% endif %} p-4">
+    {% if rule_test_result['status'] == 'blocked' %}
+    <div class="text-sm font-bold text-red-700">Matched Rule: {{ rule_test_result["attack_type"] }}</div>
+    <div class="text-xs text-red-600 mt-1">Sensitivity: {{ rule_test_result["sensitivity"]|upper }}</div>
+    <div class="text-xs text-red-600 mt-1">Pattern: <code>{{ rule_test_result["pattern"] }}</code></div>
+    {% else %}
+    <div class="text-sm font-bold text-green-700">No active rule matched this payload.</div>
+    {% endif %}
+    <div class="text-xs mt-2 {% if rule_test_result['status'] == 'blocked' %}text-red-700{% else %}text-green-700{% endif %}">
+      Payload: <code>{{ rule_test_result["payload"] }}</code>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
   <div class="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
     <h3 class="font-bold text-lg mb-5">Create Admin User</h3>
