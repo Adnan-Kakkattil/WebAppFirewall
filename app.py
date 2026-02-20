@@ -1,3 +1,5 @@
+import csv
+import io
 import os
 import re
 import sqlite3
@@ -7,6 +9,7 @@ from typing import Optional
 from urllib.parse import unquote_plus
 
 from flask import (
+    Response,
     Flask,
     flash,
     g,
@@ -773,6 +776,82 @@ def admin_test_rules():
             "payload": payload[:500],
         }
     return redirect(url_for("admin_dashboard"))
+
+
+def build_csv_response(filename: str, headers: list, rows: list) -> Response:
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(headers)
+    for row in rows:
+        writer.writerow(row)
+    output = buffer.getvalue()
+    buffer.close()
+
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@app.route("/admin/export/requests.csv")
+@admin_required
+def export_requests_csv():
+    db = get_db()
+    rows = db.execute(
+        """
+        SELECT timestamp, ip_address, method, path, status, COALESCE(attack_type, '') AS attack_type
+        FROM request_logs
+        ORDER BY id DESC
+        LIMIT 5000
+        """
+    ).fetchall()
+    csv_rows = [
+        [
+            row["timestamp"],
+            row["ip_address"],
+            row["method"],
+            row["path"],
+            row["status"],
+            row["attack_type"],
+        ]
+        for row in rows
+    ]
+    return build_csv_response(
+        filename="request_monitoring_logs.csv",
+        headers=["timestamp", "ip_address", "method", "path", "status", "attack_type"],
+        rows=csv_rows,
+    )
+
+
+@app.route("/admin/export/attacks.csv")
+@admin_required
+def export_attacks_csv():
+    db = get_db()
+    rows = db.execute(
+        """
+        SELECT timestamp, ip_address, attack_type, method, path, payload
+        FROM attacks
+        ORDER BY id DESC
+        LIMIT 5000
+        """
+    ).fetchall()
+    csv_rows = [
+        [
+            row["timestamp"],
+            row["ip_address"],
+            row["attack_type"],
+            row["method"],
+            row["path"],
+            row["payload"],
+        ]
+        for row in rows
+    ]
+    return build_csv_response(
+        filename="blocked_attack_logs.csv",
+        headers=["timestamp", "ip_address", "attack_type", "method", "path", "payload"],
+        rows=csv_rows,
+    )
 
 
 @app.errorhandler(403)
