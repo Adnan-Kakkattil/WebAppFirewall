@@ -14,9 +14,15 @@
         placeholder="Enter text or malicious code..."
       >{{ query or '' }}</textarea>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <button type="button" onclick="fillExample('sqli')" class="py-3 border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50">SQLi Example</button>
         <button type="button" onclick="fillExample('xss')" class="py-3 border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50">XSS Example</button>
+        <button type="button" onclick="fillExample('path')" class="py-3 border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50">Path Traversal</button>
+        <button type="button" onclick="fillExample('cmd')" class="py-3 border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50">Cmd Injection</button>
+        <button type="button" onclick="fillExample('ssti')" class="py-3 border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50">SSTI</button>
+        <button type="button" onclick="fillExample('nosqli')" class="py-3 border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50">NoSQLi</button>
+        <button type="button" onclick="fillExample('xxe')" class="py-3 border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50">XXE</button>
+        <button type="button" onclick="fillExample('file')" class="py-3 border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50">File Inclusion</button>
       </div>
 
       <button type="submit" class="w-full py-5 bg-red-500 text-white rounded-3xl font-extrabold shadow-xl shadow-red-200 hover:bg-red-600">
@@ -37,7 +43,13 @@
     const el = document.getElementById("payload");
     if (!el) return;
     if (type === "sqli") el.value = "SELECT * FROM users WHERE id = '1' OR '1' = '1'";
-    if (type === "xss") el.value = "<script>alert('XSS Test')</script>";
+    if (type === "xss") el.value = "<script>alert('XSS Test')<" + "/script>";
+    if (type === "path") el.value = "../../etc/passwd";
+    if (type === "cmd") el.value = "name=test; whoami";
+    if (type === "ssti") el.value = "{{7*7}}";
+    if (type === "nosqli") el.value = "{\"username\":{\"$ne\":null},\"password\":{\"$ne\":null}}";
+    if (type === "xxe") el.value = "<!DOCTYPE foo [ <!ENTITY xxe SYSTEM \"file:///etc/passwd\"> ]><root>&xxe;</root>";
+    if (type === "file") el.value = "page=php://filter/convert.base64-encode/resource=index.php";
   }
 </script>
 {% endblock %}

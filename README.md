@@ -8,7 +8,12 @@ It runs as a middleware layer in Flask and blocks suspicious requests before the
 - Regex-based detection for:
   - SQL Injection (SQLi)
   - Cross-Site Scripting (XSS)
-  - Path Traversal and Command Injection patterns
+  - Path Traversal
+  - Command Injection
+  - Server-Side Template Injection (SSTI)
+  - NoSQL Injection (NoSQLi)
+  - XML External Entity (XXE)
+  - Local/File Inclusion payload patterns
 - `@app.before_request` inspection layer
 - Automatic blocking with `403 Forbidden`
 - SQLite logging of blocked attacks:
@@ -17,6 +22,7 @@ It runs as a middleware layer in Flask and blocks suspicious requests before the
   - allowed/blocked status, path, method, detected type
 - Admin authentication with hashed passwords
 - Admin dashboard for attack summaries and recent logs
+- Detection rule controls (enable/disable modules from admin dashboard)
 - Simulation mode for college demo testing
 
 ## Tech Stack
@@ -65,5 +71,10 @@ Try these in Simulation Mode:
 - `<script>alert(1)</script>` (XSS)
 - `' OR '1'='1` (SQLi)
 - `UNION SELECT password FROM users` (SQLi)
+- `../../etc/passwd` (Path Traversal)
+- `name=test; whoami` (Command Injection)
+- `{{7*7}}` (SSTI)
+- `{"username":{"$ne":null},"password":{"$ne":null}}` (NoSQLi)
+- `<!DOCTYPE foo [ <!ENTITY xxe SYSTEM "file:///etc/passwd"> ]><root>&xxe;</root>` (XXE)
 
 Blocked requests appear in the Admin Dashboard.

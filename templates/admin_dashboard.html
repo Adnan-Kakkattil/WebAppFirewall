@@ -32,6 +32,65 @@
   </div>
 </div>
 
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <p class="text-slate-400 text-sm font-medium">Path Traversal</p>
+    <h3 class="text-3xl font-bold mt-1 text-slate-800">{{ "{:,}".format(stats["path_traversal"]) }}</h3>
+  </div>
+  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <p class="text-slate-400 text-sm font-medium">Command Injection</p>
+    <h3 class="text-3xl font-bold mt-1 text-slate-800">{{ "{:,}".format(stats["command_injection"]) }}</h3>
+  </div>
+  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <p class="text-slate-400 text-sm font-medium">SSTI</p>
+    <h3 class="text-3xl font-bold mt-1 text-slate-800">{{ "{:,}".format(stats["ssti"]) }}</h3>
+  </div>
+  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <p class="text-slate-400 text-sm font-medium">NoSQLi</p>
+    <h3 class="text-3xl font-bold mt-1 text-slate-800">{{ "{:,}".format(stats["nosqli"]) }}</h3>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <p class="text-slate-400 text-sm font-medium">XXE Attempts</p>
+    <h3 class="text-3xl font-bold mt-1 text-slate-800">{{ "{:,}".format(stats["xxe"]) }}</h3>
+  </div>
+  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <p class="text-slate-400 text-sm font-medium">File Inclusion</p>
+    <h3 class="text-3xl font-bold mt-1 text-slate-800">{{ "{:,}".format(stats["file_inclusion"]) }}</h3>
+  </div>
+</div>
+
+<div class="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+  <div class="flex items-center justify-between mb-5">
+    <h3 class="font-bold text-lg">Detection Rule Controls</h3>
+    <span class="text-xs text-slate-400">Enable or disable security modules</span>
+  </div>
+  <form method="post" action="{{ url_for('admin_update_rules') }}" class="space-y-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {% for rule in rules %}
+      <label class="flex items-center justify-between px-4 py-3 rounded-xl border border-slate-100 bg-slate-50">
+        <div>
+          <div class="font-semibold text-slate-700">{{ rule["label"] }}</div>
+          <div class="text-xs text-slate-400">Detected: {{ "{:,}".format(stats.get(rule["stats_key"], 0)) }}</div>
+        </div>
+        <input
+          type="checkbox"
+          name="enabled_rules"
+          value="{{ rule['rule_name'] }}"
+          class="w-4 h-4 accent-red-500"
+          {% if rule["is_enabled"] %}checked{% endif %}
+        >
+      </label>
+      {% endfor %}
+    </div>
+    <button type="submit" class="px-5 py-3 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600">
+      Save Rule Settings
+    </button>
+  </form>
+</div>
+
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
   <div class="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
     <h3 class="font-bold text-lg mb-5">Create Admin User</h3>

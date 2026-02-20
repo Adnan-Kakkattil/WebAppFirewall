@@ -32,6 +32,36 @@
   </div>
 </div>
 
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <p class="text-slate-400 text-sm font-medium">Path Traversal</p>
+    <h3 class="text-3xl font-bold mt-1 text-slate-800">{{ "{:,}".format(stats["path_traversal"]) }}</h3>
+  </div>
+  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <p class="text-slate-400 text-sm font-medium">Command Injection</p>
+    <h3 class="text-3xl font-bold mt-1 text-slate-800">{{ "{:,}".format(stats["command_injection"]) }}</h3>
+  </div>
+  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <p class="text-slate-400 text-sm font-medium">SSTI</p>
+    <h3 class="text-3xl font-bold mt-1 text-slate-800">{{ "{:,}".format(stats["ssti"]) }}</h3>
+  </div>
+  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <p class="text-slate-400 text-sm font-medium">NoSQLi</p>
+    <h3 class="text-3xl font-bold mt-1 text-slate-800">{{ "{:,}".format(stats["nosqli"]) }}</h3>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <p class="text-slate-400 text-sm font-medium">XXE Attempts</p>
+    <h3 class="text-3xl font-bold mt-1 text-slate-800">{{ "{:,}".format(stats["xxe"]) }}</h3>
+  </div>
+  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <p class="text-slate-400 text-sm font-medium">File Inclusion</p>
+    <h3 class="text-3xl font-bold mt-1 text-slate-800">{{ "{:,}".format(stats["file_inclusion"]) }}</h3>
+  </div>
+</div>
+
 <div class="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
   <h3 class="text-xl font-bold mb-4">Security Modules</h3>
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
@@ -41,7 +71,7 @@
     </div>
     <div class="rounded-2xl border border-slate-100 p-4 bg-slate-50">
       <div class="font-bold text-slate-800">Attack Detection</div>
-      <div class="text-slate-500 mt-1">Detects SQLi, XSS, and suspicious malicious patterns.</div>
+      <div class="text-slate-500 mt-1">Detects SQLi, XSS, Path Traversal, Command Injection, SSTI, NoSQLi, XXE, and File Inclusion.</div>
     </div>
     <div class="rounded-2xl border border-slate-100 p-4 bg-slate-50">
       <div class="font-bold text-slate-800">Attack Prevention</div>

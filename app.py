@@ -44,6 +44,34 @@ ATTACK_PATTERNS = {
     "CommandInjection": [
         re.compile(r"(\||;|&&)\s*(cat|ls|whoami|id|wget|curl|powershell|cmd)\b", re.IGNORECASE),
     ],
+    "SSTI": [
+        re.compile(r"\{\{\s*7\s*\*\s*7\s*\}\}", re.IGNORECASE),
+        re.compile(r"\{\{.*(__class__|config|cycler|joiner|self)\b.*\}\}", re.IGNORECASE),
+        re.compile(r"\{%.*(import|include|extends).*\%}", re.IGNORECASE),
+    ],
+    "NoSQLi": [
+        re.compile(r"\$(ne|gt|gte|lt|lte|where|regex|or|and)\b", re.IGNORECASE),
+        re.compile(r"\{\s*\"?\$where\"?\s*:", re.IGNORECASE),
+    ],
+    "XXE": [
+        re.compile(r"<!DOCTYPE[^>]*\[[\s\S]*<!ENTITY", re.IGNORECASE),
+        re.compile(r"<!ENTITY\s+\w+\s+SYSTEM\s+[\"']", re.IGNORECASE),
+    ],
+    "FileInclusion": [
+        re.compile(r"(/etc/passwd|/proc/self/environ|boot\.ini|win\.ini)", re.IGNORECASE),
+        re.compile(r"(php://|file://|expect://|data://)", re.IGNORECASE),
+    ],
+}
+
+RULE_METADATA = {
+    "SQLi": {"label": "SQL Injection", "stats_key": "sqli"},
+    "XSS": {"label": "Cross-Site Scripting", "stats_key": "xss"},
+    "PathTraversal": {"label": "Path Traversal", "stats_key": "path_traversal"},
+    "CommandInjection": {"label": "Command Injection", "stats_key": "command_injection"},
+    "SSTI": {"label": "Server-Side Template Injection", "stats_key": "ssti"},
+    "NoSQLi": {"label": "NoSQL Injection", "stats_key": "nosqli"},
+    "XXE": {"label": "XML External Entity", "stats_key": "xxe"},
+    "FileInclusion": {"label": "File Inclusion", "stats_key": "file_inclusion"},
 }
 
 
@@ -99,8 +127,17 @@ def init_db():
         )
         """
     )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS waf_rules (
+            rule_name TEXT PRIMARY KEY,
+            is_enabled INTEGER NOT NULL DEFAULT 1
+        )
+        """
+    )
     db.commit()
     ensure_default_admin()
+    ensure_default_rules()
 
 
 def ensure_default_admin():
@@ -117,6 +154,21 @@ def ensure_default_admin():
             (username, password_hash),
         )
         db.commit()
+
+
+def ensure_default_rules():
+    db = get_db()
+    for rule_name in ATTACK_PATTERNS:
+        existing = db.execute(
+            "SELECT rule_name FROM waf_rules WHERE rule_name = ?",
+            (rule_name,),
+        ).fetchone()
+        if existing is None:
+            db.execute(
+                "INSERT INTO waf_rules (rule_name, is_enabled) VALUES (?, 1)",
+                (rule_name,),
+            )
+    db.commit()
 
 
 def admin_required(view):
@@ -150,11 +202,13 @@ def collect_payload() -> str:
     return " | ".join(pieces).strip()
 
 
-def detect_attack(payload: str):
+def detect_attack(payload: str, enabled_rules: set):
     if not payload:
         return None
     decoded_payload = unquote_plus(payload)
     for attack_type, patterns in ATTACK_PATTERNS.items():
+        if attack_type not in enabled_rules:
+            continue
         for pattern in patterns:
             if pattern.search(decoded_payload):
                 return attack_type
@@ -207,6 +261,63 @@ def log_request(status: str, payload: str, attack_type: Optional[str] = None):
     db.commit()
 
 
+def attack_count(db: sqlite3.Connection, attack_type: str) -> int:
+    return db.execute(
+        "SELECT COUNT(*) AS total FROM attacks WHERE attack_type = ?",
+        (attack_type,),
+    ).fetchone()["total"]
+
+
+def build_security_stats(db: sqlite3.Connection) -> dict:
+    traffic_total = db.execute("SELECT COUNT(*) AS total FROM request_logs").fetchone()["total"]
+    blocked_total = db.execute(
+        "SELECT COUNT(*) AS total FROM request_logs WHERE status = 'BLOCKED'"
+    ).fetchone()["total"]
+    allowed_total = db.execute(
+        "SELECT COUNT(*) AS total FROM request_logs WHERE status = 'ALLOWED'"
+    ).fetchone()["total"]
+    stats = {
+        "traffic": traffic_total,
+        "allowed": allowed_total,
+        "blocked": blocked_total,
+        "sqli": attack_count(db, "SQLi"),
+        "xss": attack_count(db, "XSS"),
+        "path_traversal": attack_count(db, "PathTraversal"),
+        "command_injection": attack_count(db, "CommandInjection"),
+        "ssti": attack_count(db, "SSTI"),
+        "nosqli": attack_count(db, "NoSQLi"),
+        "xxe": attack_count(db, "XXE"),
+        "file_inclusion": attack_count(db, "FileInclusion"),
+    }
+    return stats
+
+
+def get_enabled_rules(db: sqlite3.Connection) -> set:
+    rows = db.execute(
+        "SELECT rule_name FROM waf_rules WHERE is_enabled = 1"
+    ).fetchall()
+    return {row["rule_name"] for row in rows}
+
+
+def get_rule_rows(db: sqlite3.Connection) -> list:
+    rows = db.execute(
+        "SELECT rule_name, is_enabled FROM waf_rules ORDER BY rule_name ASC"
+    ).fetchall()
+    result = []
+    for row in rows:
+        rule_name = row["rule_name"]
+        meta = RULE_METADATA.get(rule_name, {"label": rule_name, "stats_key": ""})
+        result.append(
+            {
+                "rule_name": rule_name,
+                "label": meta["label"],
+                "stats_key": meta["stats_key"],
+                "is_enabled": bool(row["is_enabled"]),
+            }
+        )
+    return result
+
+
 @app.before_request
 def waf_layer():
     if request.path.startswith("/static"):
@@ -219,11 +330,14 @@ def waf_layer():
         "/admin/users/create",
         "/admin/users/delete",
         "/admin/users/reset-password",
+        "/admin/rules/update",
     }:
         return None
 
+    db = get_db()
     payload = collect_payload()
-    attack_type = detect_attack(payload)
+    enabled_rules = get_enabled_rules(db)
+    attack_type = detect_attack(payload, enabled_rules)
 
     if attack_type:
         log_request(status="BLOCKED", payload=payload, attack_type=attack_type)
@@ -245,26 +359,7 @@ def waf_layer():
 @app.route("/")
 def home():
     db = get_db()
-    traffic_total = db.execute("SELECT COUNT(*) AS total FROM request_logs").fetchone()["total"]
-    blocked_total = db.execute(
-        "SELECT COUNT(*) AS total FROM request_logs WHERE status = 'BLOCKED'"
-    ).fetchone()["total"]
-    allowed_total = db.execute(
-        "SELECT COUNT(*) AS total FROM request_logs WHERE status = 'ALLOWED'"
-    ).fetchone()["total"]
-    sqli_total = db.execute(
-        "SELECT COUNT(*) AS total FROM attacks WHERE attack_type = 'SQLi'"
-    ).fetchone()["total"]
-    xss_total = db.execute(
-        "SELECT COUNT(*) AS total FROM attacks WHERE attack_type = 'XSS'"
-    ).fetchone()["total"]
-    stats = {
-        "traffic": traffic_total,
-        "allowed": allowed_total,
-        "blocked": blocked_total,
-        "sqli": sqli_total,
-        "xss": xss_total,
-    }
+    stats = build_security_stats(db)
     return render_template(
         "index.html", page_title="Security Overview", active_nav="overview", stats=stats
     )
@@ -389,32 +484,14 @@ def admin_dashboard():
         ORDER BY username ASC
         """
     ).fetchall()
-    traffic_total = db.execute("SELECT COUNT(*) AS total FROM request_logs").fetchone()["total"]
-    blocked_total = db.execute(
-        "SELECT COUNT(*) AS total FROM request_logs WHERE status = 'BLOCKED'"
-    ).fetchone()["total"]
-    allowed_total = db.execute(
-        "SELECT COUNT(*) AS total FROM request_logs WHERE status = 'ALLOWED'"
-    ).fetchone()["total"]
-    sqli_total = db.execute(
-        "SELECT COUNT(*) AS total FROM attacks WHERE attack_type = 'SQLi'"
-    ).fetchone()["total"]
-    xss_total = db.execute(
-        "SELECT COUNT(*) AS total FROM attacks WHERE attack_type = 'XSS'"
-    ).fetchone()["total"]
-
-    stats = {
-        "traffic": traffic_total,
-        "allowed": allowed_total,
-        "blocked": blocked_total,
-        "sqli": sqli_total,
-        "xss": xss_total,
-    }
+    rules = get_rule_rows(db)
+    stats = build_security_stats(db)
     return render_template(
         "admin_dashboard.html",
         attacks=attacks,
         requests=requests,
         admins=admins,
+        rules=rules,
         current_admin_id=session.get("admin_id"),
         summary=summary,
         stats=stats,
@@ -513,6 +590,24 @@ def admin_delete_user():
     db.execute("DELETE FROM admins WHERE id = ?", (admin_id,))
     db.commit()
     flash("Admin user deleted successfully.")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/rules/update", methods=["POST"])
+@admin_required
+def admin_update_rules():
+    enabled_rules = set(request.form.getlist("enabled_rules"))
+    db = get_db()
+    known_rules = set(ATTACK_PATTERNS.keys())
+
+    for rule_name in known_rules:
+        is_enabled = 1 if rule_name in enabled_rules else 0
+        db.execute(
+            "UPDATE waf_rules SET is_enabled = ? WHERE rule_name = ?",
+            (is_enabled, rule_name),
+        )
+    db.commit()
+    flash("Detection rule settings updated.")
     return redirect(url_for("admin_dashboard"))
 
 
