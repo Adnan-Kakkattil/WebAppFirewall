@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-8">
+  <div class="bg-white p-10 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-100/50">
+    <h3 class="text-2xl font-bold mb-2">WAF Sandbox</h3>
+    <p class="text-slate-500 mb-6">Test SQLi and XSS payloads against your live Python firewall engine.</p>
+
+    <form method="post" action="{{ url_for('simulate') }}" class="space-y-6">
+      <textarea
+        id="payload"
+        name="payload"
+        rows="4"
+        class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 font-mono text-sm focus:border-red-400 outline-none"
+        placeholder="Enter text or malicious code..."
+      >{{ query or '' }}</textarea>
+
+      <div class="grid grid-cols-2 gap-4">
+        <button type="button" onclick="fillExample('sqli')" class="py-3 border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50">SQLi Example</button>
+        <button type="button" onclick="fillExample('xss')" class="py-3 border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50">XSS Example</button>
+      </div>
+
+      <button type="submit" class="w-full py-5 bg-red-500 text-white rounded-3xl font-extrabold shadow-xl shadow-red-200 hover:bg-red-600">
+        Process Request via Firewall
+      </button>
+    </form>
+  </div>
+
+  {% if query %}
+  <div class="p-6 bg-green-50 text-green-700 rounded-3xl font-bold border border-green-100">
+    Request accepted by WAF: <code class="font-mono">{{ query }}</code>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  function fillExample(type) {
+    const el = document.getElementById("payload");
+    if (!el) return;
+    if (type === "sqli") el.value = "SELECT * FROM users WHERE id = '1' OR '1' = '1'";
+    if (type === "xss") el.value = "<script>alert('XSS Test')</script>";
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WAF Shield - Security Control Center</title>
+    <!-- Use specific version of Tailwind for stability -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Pin Lucide version -->
+    <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+        
+        :root {
+            --brand-red: #ef4444;
+            --brand-red-light: #fee2e2;
+            --brand-red-border: #fecaca;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #fdfdfd;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(239, 68, 68, 0.1);
+        }
+
+        .nav-link.active {
+            background-color: var(--brand-red-light);
+            color: var(--brand-red);
+        }
+
+        .status-pulse {
+            position: relative;
+        }
+
+        .status-pulse::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            left: -12px;
+            top: 6px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #fecaca; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #ef4444; }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div id="app">
+        <!-- LOGIN SCREEN -->
+        <div id="login-screen" class="min-h-screen flex items-center justify-center bg-white p-6">
+            <div class="max-w-md w-full space-y-8">
+                <div class="text-center">
+                    <div class="inline-flex p-4 rounded-3xl bg-red-50 mb-4">
+                        <i data-lucide="shield-check" class="w-12 h-12 text-red-500"></i>
+                    </div>
+                    <h2 class="text-3xl font-extrabold text-slate-900">WAF Shield Admin</h2>
+                    <p class="mt-2 text-sm text-slate-500">Secure access to web application firewall controls</p>
+                </div>
+                <form class="mt-8 space-y-6" id="loginForm">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Admin Username</label>
+                            <input type="text" id="username" required class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-red-400 focus:ring-2 focus:ring-red-100 transition-all outline-none" placeholder="admin">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Access Token</label>
+                            <input type="password" id="password" required class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-red-400 focus:ring-2 focus:ring-red-100 transition-all outline-none" placeholder="Enter password">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full py-4 px-6 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold shadow-lg shadow-red-200 transition-all transform hover:-translate-y-0.5">
+                        Initialize Dashboard
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- MAIN DASHBOARD -->
+        <div id="main-interface" class="hidden flex min-h-screen">
+            <!-- Sidebar -->
+            <aside class="w-72 bg-white border-r border-slate-100 flex flex-col sticky top-0 h-screen">
+                <div class="p-8 border-b border-slate-50 flex items-center gap-3">
+                    <div class="bg-red-500 p-2 rounded-xl text-white">
+                        <i data-lucide="shield" class="w-6 h-6"></i>
+                    </div>
+                    <span class="font-bold text-xl tracking-tight">WAF<span class="text-red-500">Shield</span></span>
+                </div>
+
+                <nav class="flex-1 px-4 py-6 space-y-2">
+                    <button onclick="switchTab('overview')" id="nav-overview" class="nav-link active w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all">
+                        <i data-lucide="layout-grid" class="w-5 h-5"></i>
+                        <span class="font-semibold">Overview</span>
+                    </button>
+                    <button onclick="switchTab('logs')" id="nav-logs" class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-slate-50 transition-all">
+                        <i data-lucide="activity" class="w-5 h-5"></i>
+                        <span class="font-semibold">Security Logs</span>
+                    </button>
+                    <button onclick="switchTab('simulator')" id="nav-simulator" class="nav-link w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:bg-slate-50 transition-all">
+                        <i data-lucide="terminal" class="w-5 h-5"></i>
+                        <span class="font-semibold">Attack Simulator</span>
+                    </button>
+                </nav>
+
+                <div class="p-6 border-t border-slate-50">
+                    <button onclick="logout()" class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-red-500 font-bold hover:bg-red-50 transition-all">
+                        <i data-lucide="log-out" class="w-5 h-5"></i>
+                        Sign Out
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Content Area -->
+            <main class="flex-1 bg-[#fcfcfc] overflow-y-auto">
+                <header class="h-20 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center justify-between px-10 sticky top-0 z-10">
+                    <div class="flex items-center gap-4">
+                        <h2 id="view-title" class="text-xl font-bold text-slate-800">Security Overview</h2>
+                        <div class="px-4 py-1 bg-green-50 text-green-600 rounded-full text-xs font-bold border border-green-100 ml-2">
+                            <span class="status-pulse inline-block ml-3">System Protected</span>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="p-10 max-w-7xl mx-auto space-y-8">
+                    <!-- OVERVIEW -->
+                    <div id="tab-overview" class="tab-content space-y-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="p-3 bg-blue-50 text-blue-500 rounded-2xl"><i data-lucide="globe" class="w-6 h-6"></i></div>
+                                </div>
+                                <p class="text-slate-400 text-sm font-medium">Global Traffic</p>
+                                <h3 id="stat-traffic" class="text-3xl font-bold mt-1 text-slate-800">12,482</h3>
+                            </div>
+                            <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="p-3 bg-red-50 text-red-500 rounded-2xl"><i data-lucide="shield-x" class="w-6 h-6"></i></div>
+                                </div>
+                                <p class="text-slate-400 text-sm font-medium">Attacks Blocked</p>
+                                <h3 id="stat-blocked" class="text-3xl font-bold mt-1 text-slate-800">1,204</h3>
+                            </div>
+                            <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="p-3 bg-orange-50 text-orange-500 rounded-2xl"><i data-lucide="database" class="w-6 h-6"></i></div>
+                                </div>
+                                <p class="text-slate-400 text-sm font-medium">SQLi Attempts</p>
+                                <h3 id="stat-sqli" class="text-3xl font-bold mt-1 text-slate-800">842</h3>
+                            </div>
+                            <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="p-3 bg-purple-50 text-purple-500 rounded-2xl"><i data-lucide="code-2" class="w-6 h-6"></i></div>
+                                </div>
+                                <p class="text-slate-400 text-sm font-medium">XSS Injections</p>
+                                <h3 id="stat-xss" class="text-3xl font-bold mt-1 text-slate-800">362</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LOGS -->
+                    <div id="tab-logs" class="tab-content hidden space-y-6">
+                        <div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                            <div class="p-8 border-b border-slate-50 flex items-center justify-between">
+                                <h3 class="font-bold text-lg">Detailed Security Logs</h3>
+                                <button onclick="clearLogs()" class="px-5 py-2.5 bg-slate-50 text-slate-500 rounded-xl text-xs font-bold hover:bg-slate-100">Clear Logs</button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left">
+                                    <thead>
+                                        <tr class="bg-slate-50 text-slate-400 text-[10px] uppercase tracking-widest font-bold">
+                                            <th class="px-8 py-4">Time</th>
+                                            <th class="px-8 py-4">IP Address</th>
+                                            <th class="px-8 py-4">Threat Type</th>
+                                            <th class="px-8 py-4">Risk</th>
+                                            <th class="px-8 py-4">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="log-table-body" class="divide-y divide-slate-50"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SIMULATOR -->
+                    <div id="tab-simulator" class="tab-content hidden max-w-3xl mx-auto space-y-8">
+                        <div class="bg-white p-10 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-100/50">
+                            <h3 class="text-2xl font-bold mb-6">WAF Sandbox</h3>
+                            <div class="space-y-6">
+                                <textarea id="simulator-input" rows="4" class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 font-mono text-sm focus:border-red-400 outline-none" placeholder="Enter text or malicious code..."></textarea>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <button onclick="fillExample('sqli')" class="py-3 border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50">SQLi Example</button>
+                                    <button onclick="fillExample('xss')" class="py-3 border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50">XSS Example</button>
+                                </div>
+                                <button onclick="simulateAttack()" class="w-full py-5 bg-red-500 text-white rounded-3xl font-extrabold shadow-xl shadow-red-200 hover:bg-red-600">
+                                    Process Request via Firewall
+                                </button>
+                            </div>
+                        </div>
+                        <div id="simulator-result" class="hidden"></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Global State
+        let stats = { traffic: 12482, blocked: 1204, sqli: 842, xss: 362 };
+        let logs = [
+            { time: new Date().toLocaleString(), ip: '192.168.4.12', type: 'SQL Injection', risk: 'Critical', status: 'Blocked' }
+        ];
+
+        // Firewall Rules (Using string patterns for compatibility)
+        const RULES = [
+            { id: 'sqli', name: 'SQL Injection', pattern: /UNION|SELECT|INSERT|UPDATE|DELETE|DROP|' OR '|--|#/gi, risk: 'Critical' },
+            { id: 'xss', name: 'Cross-Site Scripting', pattern: /<script|javascript:|onload=|alert\(|onerror=/gi, risk: 'Medium' },
+            { id: 'path', name: 'Path Traversal', pattern: /\.\.\/|\.\.\\/gi, risk: 'High' }
+        ];
+
+        function processRequest(payload) {
+            let detection = null;
+            for (let rule of RULES) {
+                if (rule.pattern.test(payload)) {
+                    detection = rule;
+                    break;
+                }
+            }
+
+            if (detection) {
+                logs.unshift({
+                    time: new Date().toLocaleString(),
+                    ip: `10.0.0.${Math.floor(Math.random() * 255)}`,
+                    type: detection.name,
+                    risk: detection.risk,
+                    status: 'Blocked'
+                });
+                stats.blocked++;
+                if (detection.id === 'sqli') stats.sqli++;
+                if (detection.id === 'xss') stats.xss++;
+                updateUI();
+                return { safe: false, detection: detection };
+            } else {
+                stats.traffic++;
+                updateUI();
+                return { safe: true };
+            }
+        }
+
+        function updateUI() {
+            const elements = ['stat-traffic', 'stat-blocked', 'stat-sqli', 'stat-xss'];
+            elements.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = stats[id.split('-')[1]].toLocaleString();
+            });
+            renderLogs();
+        }
+
+        function renderLogs() {
+            const body = document.getElementById('log-table-body');
+            if (!body) return;
+            body.innerHTML = logs.map(log => `
+                <tr class="hover:bg-slate-50/50 transition-colors">
+                    <td class="px-8 py-4 text-xs text-slate-500">${log.time}</td>
+                    <td class="px-8 py-4 text-sm font-mono font-bold">${log.ip}</td>
+                    <td class="px-8 py-4">
+                        <span class="px-2 py-1 bg-red-50 text-red-600 rounded-md text-[10px] font-bold uppercase">${log.type}</span>
+                    </td>
+                    <td class="px-8 py-4 text-xs font-semibold">${log.risk}</td>
+                    <td class="px-8 py-4 text-xs font-bold text-slate-500">${log.status}</td>
+                </tr>
+            `).join('');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active', 'bg-red-50', 'text-red-600'));
+            const active = document.getElementById(`nav-${tabId}`);
+            active.classList.add('active', 'bg-red-50', 'text-red-600');
+            document.getElementById('view-title').innerText = tabId.charAt(0).toUpperCase() + tabId.slice(1);
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function simulateAttack() {
+            const input = document.getElementById('simulator-input').value;
+            const resDiv = document.getElementById('simulator-result');
+            if (!input.trim() || !resDiv) return;
+
+            const result = processRequest(input);
+            resDiv.classList.remove('hidden');
+            if (result.safe) {
+                resDiv.innerHTML = `<div class="p-6 bg-green-50 text-green-700 rounded-3xl mt-4 font-bold">Request Safe: No threats detected.</div>`;
+            } else {
+                resDiv.innerHTML = `<div class="p-6 bg-red-50 text-red-700 rounded-3xl mt-4 font-bold">Blocked: ${result.detection.name} identified.</div>`;
+            }
+        }
+
+        function fillExample(type) {
+            const el = document.getElementById('simulator-input');
+            if (!el) return;
+            if (type === 'sqli') el.value = "SELECT * FROM users WHERE id = '1' OR '1' = '1'";
+            if (type === 'xss') el.value = "<script>alert('XSS Test')</script>";
+        }
+
+        function clearLogs() { logs = []; renderLogs(); }
+        function logout() { location.reload(); }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginForm = document.getElementById('loginForm');
+            if (loginForm) {
+                loginForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    document.getElementById('login-screen').classList.add('hidden');
+                    document.getElementById('main-interface').classList.remove('hidden');
+                    updateUI();
+                });
+            }
+            if (window.lucide) lucide.createIcons();
+        });
+    </script>
+</body>
+</html>

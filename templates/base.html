@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WAF Shield - {{ page_title or "Security Control Center" }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@0.321.0/dist/umd/lucide.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --brand-red: #ef4444;
+      --brand-red-light: #fee2e2;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #fdfdfd;
+    }
+
+    .nav-link.active {
+      background-color: var(--brand-red-light);
+      color: var(--brand-red);
+    }
+
+    .status-pulse {
+      position: relative;
+    }
+
+    .status-pulse::after {
+      content: "";
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background: #22c55e;
+      border-radius: 50%;
+      left: -12px;
+      top: 6px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #fecaca; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #ef4444; }
+  </style>
+</head>
+<body class="text-slate-800">
+  <div class="flex min-h-screen">
+    <aside class="w-72 bg-white border-r border-slate-100 flex flex-col sticky top-0 h-screen">
+      <div class="p-8 border-b border-slate-50 flex items-center gap-3">
+        <div class="bg-red-500 p-2 rounded-xl text-white">
+          <i data-lucide="shield" class="w-6 h-6"></i>
+        </div>
+        <span class="font-bold text-xl tracking-tight">WAF<span class="text-red-500">Shield</span></span>
+      </div>
+
+      <nav class="flex-1 px-4 py-6 space-y-2">
+        <a href="{{ url_for('home') }}"
+           class="nav-link {% if active_nav == 'overview' %}active bg-red-50 text-red-600{% else %}text-slate-500 hover:bg-slate-50{% endif %} w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all">
+          <i data-lucide="layout-grid" class="w-5 h-5"></i>
+          <span class="font-semibold">Overview</span>
+        </a>
+        <a href="{{ url_for('admin_dashboard') }}"
+           class="nav-link {% if active_nav == 'logs' %}active bg-red-50 text-red-600{% else %}text-slate-500 hover:bg-slate-50{% endif %} w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all">
+          <i data-lucide="activity" class="w-5 h-5"></i>
+          <span class="font-semibold">Security Logs</span>
+        </a>
+        <a href="{{ url_for('simulate') }}"
+           class="nav-link {% if active_nav == 'simulator' %}active bg-red-50 text-red-600{% else %}text-slate-500 hover:bg-slate-50{% endif %} w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all">
+          <i data-lucide="terminal" class="w-5 h-5"></i>
+          <span class="font-semibold">Attack Simulator</span>
+        </a>
+      </nav>
+
+      <div class="p-6 border-t border-slate-50">
+        {% if session.get("admin_logged_in") %}
+        <a href="{{ url_for('admin_logout') }}" class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-red-500 font-bold hover:bg-red-50 transition-all">
+          <i data-lucide="log-out" class="w-5 h-5"></i>
+          Sign Out
+        </a>
+        {% else %}
+        <a href="{{ url_for('admin_login') }}" class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-red-500 font-bold hover:bg-red-50 transition-all">
+          <i data-lucide="log-in" class="w-5 h-5"></i>
+          Admin Login
+        </a>
+        {% endif %}
+      </div>
+    </aside>
+
+    <main class="flex-1 bg-[#fcfcfc] overflow-y-auto">
+      <header class="h-20 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center justify-between px-10 sticky top-0 z-10">
+        <div class="flex items-center gap-4">
+          <h2 class="text-xl font-bold text-slate-800">{{ page_title or "Security Overview" }}</h2>
+          <div class="px-4 py-1 bg-green-50 text-green-600 rounded-full text-xs font-bold border border-green-100 ml-2">
+            <span class="status-pulse inline-block ml-3">System Protected</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="p-10 max-w-7xl mx-auto space-y-6">
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        {% for message in messages %}
+        <div class="px-5 py-4 rounded-2xl border border-green-100 bg-green-50 text-green-700 text-sm font-semibold">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    });
+  </script>
+</body>
+</html>

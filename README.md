@@ -1,7 +1,66 @@
-# WebAppFirewall
+# WebAppFirewall (Python + Flask)
 
-This is a solid project choice. Building a Web Application Firewall (WAF) in Python allows you to dive deep into cybersecurity fundamentals like pattern matching, HTTP handling, and threat mitigation.Since you're using Python, the most efficient stack would be Flask (for the web interface) and Regex/Scikit-learn (for the detection engine).🏗️ Project ArchitectureTo meet your requirements, the WAF should sit as a middleware layer. It intercepts the request, inspects the payload, and either forwards it to the "app" or returns a 403 Forbidden error.🚀 Key Features & Implementation Plan1. The Detection Engine (The "Brain")Instead of just checking for simple words, use Regular Expressions (Regex) to identify common attack signatures.SQL Injection (SQLi): Look for keywords like SELECT, UNION, DROP, and special characters like ' OR '1'='1.Cross-Site Scripting (XSS): Look for <script>, javascript:, and alert tags.2. Request Monitoring & PreventionIn Flask, you can use a @app.before_request hook. This function runs before every single route, acting as your "protective layer."Logic: If request.form contains a malicious pattern, abort the request immediately and trigger the logger.3. Logging SystemDon't just print to the console; save it to a database (SQLite is perfect for this) or a .log file.Captured Data: Timestamp | IP Address | Attack Type (SQLi/XSS) | Suspicious Payload.4. Admin DashboardA restricted area where you can visualize the data.Visuals: Use a simple table to show the most recent attacks.Security: Ensure the Admin login is separate and uses hashed passwords (using Werkzeug or Bcrypt).🛠️ Suggested Technology StackComponentTechnologyBackendPython (Flask or FastAPI)FrontendHTML5 / Bootstrap (for the Admin UI)DatabaseSQLite (for logging and admin credentials)Detectionre module (Regex) or urllib.parse
+A lightweight Web Application Firewall (WAF) built in Python.  
+It runs as a middleware layer in Flask and blocks suspicious requests before they reach app routes.
 
+## Features
 
+- Regex-based detection for:
+  - SQL Injection (SQLi)
+  - Cross-Site Scripting (XSS)
+  - Path Traversal and Command Injection patterns
+- `@app.before_request` inspection layer
+- Automatic blocking with `403 Forbidden`
+- SQLite logging of blocked attacks:
+  - timestamp, IP, attack type, method, path, payload
+- Request monitoring for all incoming traffic:
+  - allowed/blocked status, path, method, detected type
+- Admin authentication with hashed passwords
+- Admin dashboard for attack summaries and recent logs
+- Simulation mode for college demo testing
 
-To make this stand out for your college submission, add a "Simulation Mode." Create a simple page with a search bar where users can intentionally try to "hack" the site using <script>alert(1)</script>. This makes for a great live demo!
+## Tech Stack
+
+- Backend: Python, Flask
+- Detection: `re` (Regex), `urllib.parse`
+- Database: SQLite
+- UI: HTML + Tailwind CSS
+
+## Project Structure
+
+- `app.py` - main Flask app, WAF engine, DB setup, admin routes
+- `templates/` - UI pages (home, simulation, blocked, admin login/dashboard)
+- `requirements.txt` - Python dependencies
+- `waf.db` - auto-created SQLite database on first run
+
+## Setup
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python app.py
+```
+
+App runs on: `http://127.0.0.1:5000`
+
+## Default Admin Login
+
+- Username: `admin`
+- Password: `admin123`
+
+You can override with environment variables:
+
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
+- `APP_SECRET`
+
+## Demo Payloads
+
+Try these in Simulation Mode:
+
+- `<script>alert(1)</script>` (XSS)
+- `' OR '1'='1` (SQLi)
+- `UNION SELECT password FROM users` (SQLi)
+
+Blocked requests appear in the Admin Dashboard.

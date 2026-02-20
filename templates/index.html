@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <div class="flex items-center justify-between mb-4">
+      <div class="p-3 bg-blue-50 text-blue-500 rounded-2xl"><i data-lucide="globe" class="w-6 h-6"></i></div>
+    </div>
+    <p class="text-slate-400 text-sm font-medium">Global Traffic</p>
+    <h3 class="text-3xl font-bold mt-1 text-slate-800">{{ "{:,}".format(stats["traffic"]) }}</h3>
+  </div>
+  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <div class="flex items-center justify-between mb-4">
+      <div class="p-3 bg-red-50 text-red-500 rounded-2xl"><i data-lucide="shield-x" class="w-6 h-6"></i></div>
+    </div>
+    <p class="text-slate-400 text-sm font-medium">Attacks Blocked</p>
+    <h3 class="text-3xl font-bold mt-1 text-slate-800">{{ "{:,}".format(stats["blocked"]) }}</h3>
+    <p class="text-xs text-green-600 mt-2 font-semibold">Allowed: {{ "{:,}".format(stats["allowed"]) }}</p>
+  </div>
+  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <div class="flex items-center justify-between mb-4">
+      <div class="p-3 bg-orange-50 text-orange-500 rounded-2xl"><i data-lucide="database" class="w-6 h-6"></i></div>
+    </div>
+    <p class="text-slate-400 text-sm font-medium">SQLi Attempts</p>
+    <h3 class="text-3xl font-bold mt-1 text-slate-800">{{ "{:,}".format(stats["sqli"]) }}</h3>
+  </div>
+  <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <div class="flex items-center justify-between mb-4">
+      <div class="p-3 bg-purple-50 text-purple-500 rounded-2xl"><i data-lucide="code-2" class="w-6 h-6"></i></div>
+    </div>
+    <p class="text-slate-400 text-sm font-medium">XSS Injections</p>
+    <h3 class="text-3xl font-bold mt-1 text-slate-800">{{ "{:,}".format(stats["xss"]) }}</h3>
+  </div>
+</div>
+
+<div class="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+  <h3 class="text-xl font-bold mb-4">Client Requested Security Modules</h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+    <div class="rounded-2xl border border-slate-100 p-4 bg-slate-50">
+      <div class="font-bold text-slate-800">Request Monitoring</div>
+      <div class="text-slate-500 mt-1">All incoming requests are inspected and logged.</div>
+    </div>
+    <div class="rounded-2xl border border-slate-100 p-4 bg-slate-50">
+      <div class="font-bold text-slate-800">Attack Detection</div>
+      <div class="text-slate-500 mt-1">Detects SQLi, XSS, and suspicious malicious patterns.</div>
+    </div>
+    <div class="rounded-2xl border border-slate-100 p-4 bg-slate-50">
+      <div class="font-bold text-slate-800">Attack Prevention</div>
+      <div class="text-slate-500 mt-1">Malicious payloads are blocked before route execution.</div>
+    </div>
+    <div class="rounded-2xl border border-slate-100 p-4 bg-slate-50">
+      <div class="font-bold text-slate-800">Logging Feature</div>
+      <div class="text-slate-500 mt-1">Stores IP, attack type, timestamp, payload, path and method.</div>
+    </div>
+    <div class="rounded-2xl border border-slate-100 p-4 bg-slate-50">
+      <div class="font-bold text-slate-800">Administrative Access</div>
+      <div class="text-slate-500 mt-1">Secure admin login and detailed security event views.</div>
+    </div>
+    <div class="rounded-2xl border border-slate-100 p-4 bg-slate-50">
+      <div class="font-bold text-slate-800">User Submission + Results</div>
+      <div class="text-slate-500 mt-1">Users submit input and see whether it is safe or blocked.</div>
+    </div>
+  </div>
+</div>
+
+<div class="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+  <h3 class="text-2xl font-bold">WAF Sandbox Quick Test</h3>
+  <p class="text-slate-500 mt-2 mb-6">Send a payload through the firewall from the overview page.</p>
+  <form action="{{ url_for('search') }}" method="get" class="grid grid-cols-1 md:grid-cols-6 gap-4">
+    <input
+      type="text"
+      name="q"
+      class="md:col-span-5 w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-red-400 focus:ring-2 focus:ring-red-100 transition-all outline-none"
+      placeholder="Try safe text or suspicious payload"
+    >
+    <button type="submit" class="w-full py-3 px-6 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold shadow-lg shadow-red-200 transition-all">
+      Process
+    </button>
+  </form>
+</div>
+
+<div class="flex flex-wrap gap-3">
+  <a href="{{ url_for('simulate') }}" class="px-5 py-3 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200">Open Simulator</a>
+  <a href="{{ url_for('admin_dashboard') }}" class="px-5 py-3 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600">Open Logs Dashboard</a>
+</div>
+{% endblock %}
